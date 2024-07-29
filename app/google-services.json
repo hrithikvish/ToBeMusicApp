@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "285169500807",
+    "project_id": "tobemusicapp",
+    "storage_bucket": "tobemusicapp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:285169500807:android:f6122b63fab171ed136e22",
+        "android_client_info": {
+          "package_name": "com.hrithikvish.ytstreamext"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBINJvW_d-RLyIiKqBYF75pfeR101WUpZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
