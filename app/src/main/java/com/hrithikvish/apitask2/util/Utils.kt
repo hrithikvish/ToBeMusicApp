@@ -7,7 +7,7 @@ class Utils {
     companion object {
 
         // https://stackoverflow.com/a/25734136/14400320
-        fun largeLog(tag: String = "tesstt", content: String) {
+        fun largeLog(content: String, tag: String = "tesstt") {
             if (content.length > 4000) {
                 Log.d(tag, content.substring(0, 4000))
                 largeLog(tag, content.substring(4000))

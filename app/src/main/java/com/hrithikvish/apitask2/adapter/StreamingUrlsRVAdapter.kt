@@ -1,5 +1,7 @@
 package com.hrithikvish.apitask2.adapter
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -7,9 +9,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.view.isVisible
@@ -18,11 +22,19 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.RecyclerView
+import com.hrithikvish.apitask2.Lyrics
 import com.hrithikvish.apitask2.R
+import com.hrithikvish.apitask2.XmlPullParserHandler
 import com.hrithikvish.apitask2.databinding.UrlsRvItemBinding
 import com.hrithikvish.apitask2.ui.StreamType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.SubtitlesStream
 import org.schabi.newpipe.extractor.stream.VideoStream
+import java.io.InputStream
+import java.net.URL
 
 class StreamingUrlsRVAdapter(
     private val context: Context
@@ -31,15 +43,25 @@ class StreamingUrlsRVAdapter(
     private var player: ExoPlayer? = null
 
     private val handler = Handler(Looper.getMainLooper())
+    private val handler2 = Handler(Looper.getMainLooper())
     private var updateSeekBar: Runnable? = null
+    private var updateLyrics: Runnable? = null
 
     private val listOfAudioOrVideoStreams = mutableListOf<Any>()
+    private val listOfSubtitleStreams = mutableListOf<SubtitlesStream>()
     private lateinit var streamType: StreamType
 
-    fun upsertAudioStreamsList(streamList: List<Any>, streamType: StreamType) {
+    @SuppressLint("NotifyDataSetChanged")
+    fun upsertAudioStreamsList(audioVideoStreamList: List<Any>, subtitleStreamList: List<SubtitlesStream>? = null, streamType: StreamType) {
         listOfAudioOrVideoStreams.clear()
-        listOfAudioOrVideoStreams.addAll(streamList)
+        listOfSubtitleStreams.clear()
+
+        listOfAudioOrVideoStreams.addAll(audioVideoStreamList)
+        subtitleStreamList?.let {
+            listOfSubtitleStreams.addAll(subtitleStreamList)
+        }
         this.streamType = streamType
+
         notifyDataSetChanged()
     }
 
@@ -70,6 +92,7 @@ class StreamingUrlsRVAdapter(
                     openStreamBtn.setOnClickListener {
                         openStreamInBrowser(listOfAudioStreams[position].url)
                     }
+
 
                     playPauseIV.tag = R.drawable.ic_play
                     playPauseIV.setOnClickListener {
@@ -122,9 +145,23 @@ class StreamingUrlsRVAdapter(
                                     }
                                 }
                             })
+
+                            if(listOfSubtitleStreams.isNotEmpty()) {
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    val inputStream: InputStream = URL(listOfSubtitleStreams[0].content).openStream()
+                                    val parser = XmlPullParserHandler()
+                                    val lyricsSegments = parser.parse(inputStream)
+
+                                    (context as Activity).runOnUiThread {
+                                        lyricsLayout.isVisible =  true
+                                    }
+                                    updateTimedLyrics(lyricsSegments, timedLyricsTV)
+                                }
+                            }
                         }
                         else {
                             playPauseIV.tag = R.drawable.ic_play
+                            lyricsLayout.isVisible =  false
 
                             player?.release()
                             seekBar.progress = 0
@@ -138,7 +175,7 @@ class StreamingUrlsRVAdapter(
                     val listOfVideoStreams = listOfAudioOrVideoStreams as List<VideoStream>
 
                     streamFormatTV.text = listOfVideoStreams[position].format.toString()
-                    streamQualityTV.text = listOfVideoStreams[position].quality.toString()
+                    streamQualityTV.text = listOfVideoStreams[position].getResolution()
                     streamUrlTV.text = listOfVideoStreams[position].url
                     kbpsTV.isVisible = false
                     seekBarLayout.isVisible = false
@@ -180,5 +217,21 @@ class StreamingUrlsRVAdapter(
             }
         }
         handler.post(updateSeekBar!!)
+    }
+
+    private fun updateTimedLyrics(lyricsSegments: List<Lyrics>, timedLyricsTV: TextView) {
+        updateLyrics = Runnable {
+            player?.let { player ->
+
+                val currentTime = player.currentPosition / 1000.0
+                val matchingLyric = lyricsSegments
+                    .filter { it.start <= currentTime }
+                    .maxByOrNull { it.start }
+
+                timedLyricsTV.text = matchingLyric?.text ?: ""
+                handler2.postDelayed(updateLyrics!!, 100)
+            }
+        }
+        handler2.post(updateLyrics!!)
     }
 }
